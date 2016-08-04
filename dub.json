@@ -1,0 +1,11 @@
+{
+    "name": "collections",
+	"dependencies": {
+		"tested": "~>0.9.4"
+	},
+	"buildTypes": {
+		"ddox": {
+			"dflags": ["-D", "-X", "-Xfdocs.json"]
+		}
+	}
+}
