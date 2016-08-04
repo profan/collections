@@ -1,4 +1,4 @@
-module containers;
+module collections;
 
-public import containers.containers;
-public import containers.memory;
+public import collections.collections;
+public import collections.memory;

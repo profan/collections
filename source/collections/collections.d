@@ -287,168 +287,6 @@ unittest {
 
 }
 
-/**
- * Array type to represent an n-dimensional array with uniform dimensions.
-*/
-struct FixedArrayN(T, int N) {
-
-	private {
-
-		IAllocator allocator_;
-
-		/* the backing array */
-		Array!T array_;
-
-	}
-
-	this(size_t size) {
-
-	} // this
-
-} // FixedArrayN
-
-@name("FixedArrayN 1 (unimplemented)")
-unittest {
-
-	assert(0);
-
-}
-
-/**
- * Array which loads the contents for a given identifier through a user-supplied delegate, useful
- * for lazy loading of resources or similar.
-*/
-struct LazyArray(T) {
-
-} // LazyArray
-
-@name("LazyArray 1 (unimplemented)")
-unittest {
-
-	assert(0);
-
-}
-
-/**
- * Simple non-resizeable heap allocated array, useful when internal moves are not desired.
-*/
-struct FixedArray(T) {
-
-	private {
-
-		Array!T array_;
-
-	}
-
-	@disable this(this);
-
-	this(IAllocator allocator, size_t size) {
-
-		this.array_ = typeof(array_)(allocator, size);
-
-	} // this
-
-	@property size_t length() @safe @nogc const {
-		return array_.length;
-	} // length
-
-	bool add(ref T item) @safe {
-
-		if (array_.length + 1 == array_.capacity) {
-			return false; //cant add more to fixed size array, is full
-		}
-
-		array_.add(item);
-		return true;
-
-	} // add
-
-	void remove(size_t index) {
-		array_.remove(index);
-	} // remove
-
-	ref T opIndex(size_t index) nothrow @nogc {
-		return array_[index];
-	} // opIndex
-
-} // FixedArray
-
-@name("FixedArray 1 (unimplemented)")
-unittest {
-
-}
-
-/**
- * Array type which never moves its contents in memory, is composed of $(D FixedArray)'s.
- * Useful for when stable pointers are desired without the need to notify the allocator of memory
- * moves.
-*/
-struct SegmentedArray(T) {
-
-	private {
-
-		IAllocator allocator_;
-
-		immutable size_t segment_size_;
-		Array!(FixedArray!T) arrays_;
-
-	}
-
-	@disable this(this);
-
-	this(IAllocator allocator, size_t segment_size) {
-
-		this.allocator_ = allocator;
-		this.segment_size_ = segment_size;
-		this.arrays_ = typeof(arrays_)(allocator_, 1);
-		this.arrays_ ~= typeof(arrays_[0])(allocator_, segment_size_);
-
-	} // this
-
-	void add(T item) {
-
-		auto num_segments = arrays_.length;
-
-		if (arrays_[$-1].length == segment_size_) {
-			arrays_ ~= typeof(arrays_[0])(allocator_, segment_size_); 
-		}
-
-		arrays_[$-1].add(item);
-
-	} // add
-
-	void remove(size_t index) {
-
-		auto sz = segment_size_;
-		auto which_arr_idx = index / sz;
-		return arrays_[which_arr_idx].remove(index % sz);
-
-	} // remove
-
-	ref T opIndex(size_t index) nothrow @nogc {
-
-		auto sz = segment_size_;
-		auto which_arr_idx = index / sz;
-		return arrays_[which_arr_idx][index % sz];
-
-	} // opIndex
-
-} // SegmentedArray
-
-@name("SegmentedArray 1: add/find")
-unittest {
-
-	auto integers = SegmentedArray!int(theAllocator, 32);
-
-	auto tests = [1, 5, 72, 432, 632, 532, 52];
-
-	foreach (i, t; tests) {
-		integers.add(t);
-		assert(integers[i] == t);
-	}
-
-}
-
 private mixin template SOAImpl() {
 
 	import std.traits : Erase, Unqual, staticMap;
@@ -1102,6 +940,8 @@ unittest {
 
 	assert(map[key][0] == true);
 	assert(map[key][1] == false);
+
+	// TODO: way more tests, and also testing with many more types
 
 }
 
@@ -1911,6 +1751,7 @@ version (unittest) {
 			this.target = t;
 		}
 
+		nothrow
 		~this() {
 			if (var != typeof(var).init) {
 				*var = target;
