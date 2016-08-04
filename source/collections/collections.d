@@ -48,25 +48,45 @@ struct Array(T) {
 
 	} // free
 
-	void clear() @safe nothrow @nogc { // note, does not run destructors!
+	/**
+	 * Clears the array logically by setting the length to zero, currently does _not_ run any destructors.
+	*/
+	void clear() @safe nothrow @nogc {
 		this.length_ = 0;
 	} // clear
 
+	/**
+	 * Returns the number of elements there is currently space allocated for.
+	*/
 	@property size_t capacity() @safe const nothrow @nogc {
 		return capacity_;
 	} // capacity
 
+	/**
+	 * Returns the number of user inserted elements currently in the array.
+	*/
 	@property size_t length() @safe const nothrow @nogc {
 		return length_;
 	} // length
 
-	@property size_t length(size_t new_length) @safe nothrow @nogc { //no-op if length is too large
+	/**
+	 * Resizes the length property to a new number, as long as this is within
+	 *  the current $(D capacity) of the array.
+	 * Returns the new length, will return the old length if greater than
+	 * capacity.
+	*/
+	@property size_t length(size_t new_length) @safe nothrow @nogc {
 		if (new_length <= capacity_) {
 			length_ = new_length;
 		}
 		return length_;
 	} // length
 
+	/**
+	 * Returns a reference to the data inside the array,
+	 *  note that this is inherently unsafe as making sure the slice
+	 *  does not outlive the structure is now your responsibility.
+	*/
 	@property T[] data() nothrow @nogc {
 		return array_;
 	} // data
