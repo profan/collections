@@ -1269,7 +1269,7 @@ struct CircularBuffer(T, AddGCRange add_ranges = AddGCRange.No) {
 	@disable this(this);
 
 	this(IAllocator allocator, size_t buffer_size) {
-		this.array_ = typeof(array_)(allocator, buffer_size);
+		this.array_ = typeof(array_, add_ranges)(allocator, buffer_size);
 	} // this
 
 	ref T opIndex(size_t index) @safe @nogc nothrow {
