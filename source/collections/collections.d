@@ -8,7 +8,12 @@ import std.experimental.allocator.mallocator : Mallocator;
 /* testulon */
 import tested : name;
 
-struct Array(T) {
+enum AddGCRange {
+	Yes,
+	No
+} // AddGCRange
+
+struct Array(T, AddGCRange add_ranges = AddGCRange.No) {
 
 	import std.algorithm : move;
 
@@ -339,7 +344,7 @@ private mixin template SOAImpl() {
  * the struct it is templated on, useful for when operating on data is done in a member-wise
  * fashion, or pointers to sub-arrays are necessary for passing to GPU, sound subsystem or similar.
  */
-struct ArraySOA(T) {
+struct ArraySOA(T, AddGCRange add_ranges = AddGCRange.No) {
 
 	static assert(is(T == struct), "can only create SOA array from a struct definition.");
 
@@ -353,7 +358,7 @@ struct ArraySOA(T) {
 		auto app = appender!string();
 
 		foreach (field; Fields) {
-			app ~= q{Array!(typeof(U.%s)) %s;}.format(field, field);
+			app ~= q{Array!(typeof(U.%s), add_ranges) %s;}.format(field, field);
 		}
 
 		return app.data;
@@ -487,7 +492,7 @@ template isCopyable(T) {
  *    * Best Case: O(1)
  *    * Worst Case: O(N)
 */
-struct HashMap(K, V) {
+struct HashMap(K, V, AddGCRange add_ranges = AddGCRange.No) {
 
 	import std.algorithm : move;
 
@@ -868,7 +873,7 @@ unittest { //test expansion
  * key/value index for values to reside in, meaning each key can be associated with several values.
  * Internally uses the aforemented $(D HashMap) implementation, and behaves as such.
 */
-struct MultiHashMap(K, V) {
+struct MultiHashMap(K, V, AddGCRange add_ranges = AddGCRange.No) {
 
 	import std.algorithm : move;
 
@@ -965,7 +970,7 @@ unittest {
 
 }
 
-struct LinkedList(T) {
+struct LinkedList(T, AddGCRange add_ranges = AddGCRange.No) {
 
 	struct Node {
 		Node* next;
@@ -1052,7 +1057,7 @@ unittest {
  * Intrusive single linked list, uses next pointer already present in the type
  * to avoid extra dynamic memory allocation.
 */
-struct ILinkedList(T) {
+struct ILinkedList(T, AddGCRange add_ranges = AddGCRange.No) {
 
 	T* head_;
 
@@ -1131,7 +1136,7 @@ unittest {
 
 }
 
-struct Stack(T) {
+struct Stack(T, AddGCRange add_ranges = AddGCRange.No) {
 
 	private LinkedList!T list_;
 
@@ -1139,7 +1144,7 @@ struct Stack(T) {
 	@disable this(this);
 
 	this(IAllocator allocator) {
-		this.list_ = LinkedList!T(allocator);
+		this.list_ = LinkedList!(T, add_ranges)(allocator);
 	} // this
 
 	void push(T item) {
@@ -1207,7 +1212,7 @@ unittest {
  * may be deemed useful, for example in a profiler which continually discards old samples as new samples come in,
  * graphing these in the process.
 */
-struct CircularBuffer(T) {
+struct CircularBuffer(T, AddGCRange add_ranges = AddGCRange.No) {
 
 	private {
 
@@ -1276,7 +1281,7 @@ unittest {
  * use case, depending on the amount of deleteMin, and respectively decreaseKey operations.
  * (one which favors shallow heaps, one which favors deeper ones)
 */
-struct DHeap(int N, T) {
+struct DHeap(int N, T, AddGCRange add_ranges = AddGCRange.No) {
 
 	import std.algorithm : move;
 
@@ -1291,7 +1296,7 @@ struct DHeap(int N, T) {
 	@disable this(this);
 
 	this(IAllocator allocator, size_t initial_size) {
-		this.array_ = typeof(array_)(allocator, initial_size);
+		this.array_ = typeof(array_, add_ranges)(allocator, initial_size);
 	} // this
 
 	size_t nthChild(size_t n, size_t i) {
@@ -1448,12 +1453,12 @@ unittest {
  * Set implementation ontop of a $(D HashMap).
  * amortized constant time add/exists/remove operations.
 */
-struct HashSet(T) {
+struct HashSet(T, AddGCRange add_ranges = AddGCRange.No) {
 
 	HashMap!(T, bool) hashmap_;
 
 	this(IAllocator allocator, size_t initial_size) {
-		this.hashmap_ = typeof(hashmap_)(allocator, initial_size);
+		this.hashmap_ = typeof(hashmap_, add_ranges)(allocator, initial_size);
 	} // this
 
 	bool add(T item) {
@@ -1733,7 +1738,7 @@ struct ByteBuffer {
 
 } // ByteBuffer
 
-struct ScopedBuffer(T) {
+struct ScopedBuffer(T, AddGCRange add_ranges = AddGCRange.No) {
 
 	private {
 
