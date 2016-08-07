@@ -10,9 +10,9 @@ import core.memory : GC;
 /* testulon */
 import tested : name;
 
-enum AddGCRange {
-	Yes,
-	No
+enum AddGCRange : bool {
+	Yes = true,
+	No = false
 } // AddGCRange
 
 struct Array(T, AddGCRange add_ranges = AddGCRange.No) {
@@ -554,16 +554,35 @@ struct HashMap(K, V, AddGCRange add_ranges = AddGCRange.No) {
 		this.array_ = allocator.makeArray!Entry(initial_size);
 		this.capacity_ = initial_size;
 
+		static if (add_ranges) register();
+
 	} // this
 
 	~this() @trusted {
+
 		if (allocator_ !is null) {
 			this.free();
 		}
+
 	} // ~this
 
+	static if (add_ranges) {
+
+		private void register() {
+			GC.addRange(cast(void*)this.array_.ptr, this.capacity_ * Entry.sizeof);
+		} // register
+
+		private void unregister() {
+			GC.removeRange(cast(void*)this.array_.ptr);
+		} // unregister
+
+	}
+
 	void free() {
+
+		static if (add_ranges) unregister();
 		this.allocator_.dispose(array_);
+
 	} // free
 
 	static if (isCopyable!K) { /* define only if key type is copyable too */
