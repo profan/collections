@@ -17,9 +17,17 @@ enum RegisterWithGC : bool {
 
 } // RegisterWithGC
 
-struct Array(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
+template shouldAddGCRange(T) {
+
+	import std.traits : isPointer, hasIndirections;
+	enum shouldAddGCRange = isPointer!T || hasIndirections!T || is (T == class);
+
+} // shouldAddGCRange
+
+struct Array(T, RegisterWithGC register_gc = RegisterWithGC.No) {
 
 	import std.algorithm : move;
+	enum add_ranges = register_gc && shouldAddGCRange!T;
 
 	private {
 
@@ -519,9 +527,10 @@ template isCopyable(T) {
  *    * Best Case: O(1)
  *    * Worst Case: O(N)
 */
-struct HashMap(K, V, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct HashMap(K, V, RegisterWithGC register_gc = RegisterWithGC.No) {
 
 	import std.algorithm : move;
+	enum add_ranges = register_gc && shouldAddGCRange!Entry;
 
 	// when used_capacity_ / capacity_ > threshold, expand & rehash!
 	enum LOAD_FACTOR_THRESHOLD = 0.75;
@@ -925,7 +934,7 @@ struct MultiHashMap(K, V, RegisterWithGC add_ranges = RegisterWithGC.No) {
 
 	private {
 
-		HashMap!(K, Array!V) map_;
+		HashMap!(K, Array!(V, add_ranges), add_ranges) map_;
 		size_t start_bucket_size_;
 
 	}
@@ -938,7 +947,7 @@ struct MultiHashMap(K, V, RegisterWithGC add_ranges = RegisterWithGC.No) {
 		this.start_bucket_size_ = bucket_size;
 
 		foreach(i; 0..initial_size) {
-			map_.array_[i].value = Array!V(allocator, bucket_size);
+			map_.array_[i].value = Array!(V, add_ranges)(allocator, bucket_size);
 		}
 
 	} // this
@@ -1188,13 +1197,13 @@ unittest {
 
 struct Stack(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
 
-	private LinkedList!T list_;
+	private LinkedList!(T, add_ranges) list_;
 
 	@disable this();
 	@disable this(this);
 
 	this(IAllocator allocator) {
-		this.list_ = LinkedList!(T, add_ranges)(allocator);
+		this.list_ = typeof(list_)(allocator);
 	} // this
 
 	void push(T item) {
@@ -1266,7 +1275,7 @@ struct CircularBuffer(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
 
 	private {
 
-		Array!T array_;
+		Array!(T, add_ranges) array_;
 		size_t cur_index;
 
 	}
@@ -1275,7 +1284,7 @@ struct CircularBuffer(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
 	@disable this(this);
 
 	this(IAllocator allocator, size_t buffer_size) {
-		this.array_ = typeof(array_, add_ranges)(allocator, buffer_size);
+		this.array_ = typeof(array_)(allocator, buffer_size);
 	} // this
 
 	ref T opIndex(size_t index) @safe @nogc nothrow {
@@ -1337,7 +1346,7 @@ struct DHeap(int N, T, RegisterWithGC add_ranges = RegisterWithGC.No) {
 
 	private {
 
-		Array!T array_;
+		Array!(T, add_ranges) array_;
 		size_t size_;
 
 	}
@@ -1346,7 +1355,7 @@ struct DHeap(int N, T, RegisterWithGC add_ranges = RegisterWithGC.No) {
 	@disable this(this);
 
 	this(IAllocator allocator, size_t initial_size) {
-		this.array_ = typeof(array_, add_ranges)(allocator, initial_size);
+		this.array_ = typeof(array_)(allocator, initial_size);
 	} // this
 
 	size_t nthChild(size_t n, size_t i) {
@@ -1505,10 +1514,10 @@ unittest {
 */
 struct HashSet(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
 
-	HashMap!(T, bool) hashmap_;
+	HashMap!(T, bool, add_ranges) hashmap_;
 
 	this(IAllocator allocator, size_t initial_size) {
-		this.hashmap_ = typeof(hashmap_, add_ranges)(allocator, initial_size);
+		this.hashmap_ = typeof(hashmap_)(allocator, initial_size);
 	} // this
 
 	bool add(T item) {
