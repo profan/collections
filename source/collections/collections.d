@@ -5,6 +5,8 @@ import std.experimental.allocator : allocatorObject, IAllocator, theAllocator, m
 import std.experimental.allocator.building_blocks.free_list : FreeList;
 import std.experimental.allocator.mallocator : Mallocator;
 
+import core.memory : GC;
+
 /* testulon */
 import tested : name;
 
@@ -39,6 +41,8 @@ struct Array(T, AddGCRange add_ranges = AddGCRange.No) {
 		this.capacity_ = initial_size;
 		this.length_ = 0;
 
+		static if (add_ranges) register();
+
 	} // this
 
 	~this() @trusted {
@@ -47,8 +51,21 @@ struct Array(T, AddGCRange add_ranges = AddGCRange.No) {
 		}
 	} // ~this
 
+	static if (add_ranges) {
+
+		private void register() {
+			GC.addRange(cast(void*)this.array_.ptr, this.capacity_ * T.sizeof);
+		} // register
+
+		private void unregister() {
+			GC.removeRange(cast(void*)this.array_.ptr);
+		} // unregister
+
+	}
+
 	void free() {
 
+		static if (add_ranges) unregister();
 		this.allocator_.dispose(array_);
 
 	} // free
@@ -185,8 +202,12 @@ struct Array(T, AddGCRange add_ranges = AddGCRange.No) {
 
 	void expand(size_t extra_size) @trusted {
 
+		static if (add_ranges) unregister();
+
 		bool success = allocator_.expandArray(array_, extra_size);
 		capacity_ += extra_size;
+
+		static if (add_ranges) register();
 
 		assert(success, "failed to expand array!");
 
@@ -197,9 +218,13 @@ struct Array(T, AddGCRange add_ranges = AddGCRange.No) {
 	*/
 	void shrink() @trusted {
 
+		static if (add_ranges) unregister();
+
 		auto shrinkage = capacity_ - length_;
 		bool success = allocator_.shrinkArray(array_, shrinkage);
 		capacity_ = length_;
+
+		static if (add_ranges) register();
 
 		assert(success, "failed to shrink array!");
 
