@@ -10,10 +10,11 @@ import core.memory : GC;
 /* testulon */
 import tested : name;
 
-enum RegisterWithGC : bool {
+enum RegisterWithGC : uint {
 
-	Yes = true,
-	No = false
+	Infer,
+	Yes,
+	No
 
 } // RegisterWithGC
 
@@ -24,10 +25,16 @@ template shouldAddGCRange(T) {
 
 } // shouldAddGCRange
 
-struct Array(T, RegisterWithGC register_gc = RegisterWithGC.No) {
+template needsToAddGCRange(T, alias register_gc) {
+
+	enum needsToAddGCRange = register_gc == RegisterWithGC.Yes || (register_gc == RegisterWithGC.Infer && shouldAddGCRange!T);
+
+} // needsToAddGCRange
+
+struct Array(T, RegisterWithGC register_gc = RegisterWithGC.Infer) {
 
 	import std.algorithm : move;
-	enum add_ranges = register_gc && shouldAddGCRange!T;
+	enum add_ranges = needsToAddGCRange!(T, register_gc);
 
 	private {
 
@@ -379,7 +386,7 @@ private mixin template SOAImpl() {
  * the struct it is templated on, useful for when operating on data is done in a member-wise
  * fashion, or pointers to sub-arrays are necessary for passing to GPU, sound subsystem or similar.
  */
-struct ArraySOA(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct ArraySOA(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
 
 	static assert(is(T == struct), "can only create SOA array from a struct definition.");
 
@@ -527,10 +534,10 @@ template isCopyable(T) {
  *    * Best Case: O(1)
  *    * Worst Case: O(N)
 */
-struct HashMap(K, V, RegisterWithGC register_gc = RegisterWithGC.No) {
+struct HashMap(K, V, RegisterWithGC register_gc = RegisterWithGC.Infer) {
 
 	import std.algorithm : move;
-	enum add_ranges = register_gc && shouldAddGCRange!Entry;
+	enum add_ranges = needsToAddGCRange!(Entry, register_gc);
 
 	// when used_capacity_ / capacity_ > threshold, expand & rehash!
 	enum LOAD_FACTOR_THRESHOLD = 0.75;
@@ -928,7 +935,7 @@ unittest { //test expansion
  * key/value index for values to reside in, meaning each key can be associated with several values.
  * Internally uses the aforemented $(D HashMap) implementation, and behaves as such.
 */
-struct MultiHashMap(K, V, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct MultiHashMap(K, V, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
 
 	import std.algorithm : move;
 
@@ -1025,7 +1032,7 @@ unittest {
 
 }
 
-struct LinkedList(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct LinkedList(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
 
 	struct Node {
 		Node* next;
@@ -1116,7 +1123,7 @@ unittest {
  * Intrusive single linked list, uses next pointer already present in the type
  * to avoid extra dynamic memory allocation.
 */
-struct ILinkedList(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct ILinkedList(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
 
 	T* head_;
 
@@ -1195,7 +1202,7 @@ unittest {
 
 }
 
-struct Stack(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct Stack(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
 
 	private LinkedList!(T, add_ranges) list_;
 
@@ -1271,7 +1278,7 @@ unittest {
  * may be deemed useful, for example in a profiler which continually discards old samples as new samples come in,
  * graphing these in the process.
 */
-struct CircularBuffer(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct CircularBuffer(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
 
 	private {
 
@@ -1340,7 +1347,7 @@ unittest {
  * use case, depending on the amount of deleteMin, and respectively decreaseKey operations.
  * (one which favors shallow heaps, one which favors deeper ones)
 */
-struct DHeap(int N, T, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct DHeap(int N, T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
 
 	import std.algorithm : move;
 
@@ -1512,7 +1519,7 @@ unittest {
  * Set implementation ontop of a $(D HashMap).
  * amortized constant time add/exists/remove operations.
 */
-struct HashSet(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct HashSet(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
 
 	HashMap!(T, bool, add_ranges) hashmap_;
 
@@ -1797,7 +1804,7 @@ struct ByteBuffer {
 
 } // ByteBuffer
 
-struct ScopedBuffer(T, RegisterWithGC add_ranges = RegisterWithGC.No) {
+struct ScopedBuffer(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
 
 	private {
 
