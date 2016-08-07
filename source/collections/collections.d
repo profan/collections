@@ -1043,6 +1043,7 @@ struct LinkedList(T, AddGCRange add_ranges = AddGCRange.No) {
 		while (cur != null) {
 			auto last = cur;
 			cur = cur.next;
+			static if (add_ranges) GC.removeRoot(cast(void*)last);
 			allocator_.dispose(last);
 		}
 
@@ -1061,6 +1062,8 @@ struct LinkedList(T, AddGCRange add_ranges = AddGCRange.No) {
 
 		*node = new_node;
 
+		static if (add_ranges) GC.addRoot(cast(void*)new_node);
+
 	} // push
 
 	void poll() {
@@ -1068,6 +1071,7 @@ struct LinkedList(T, AddGCRange add_ranges = AddGCRange.No) {
 		if (head_) {
 			auto last_head = head_;
 			head_ = head_.next;
+			static if (add_ranges) GC.removeRoot(cast(void*)last_head);
 			allocator_.dispose(last_head);
 		}
 
