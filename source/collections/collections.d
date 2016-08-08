@@ -11,11 +11,8 @@ import core.memory : GC;
 import tested : name;
 
 enum RegisterWithGC : uint {
-
-	Infer,
 	Yes,
 	No
-
 } // RegisterWithGC
 
 template shouldAddGCRange(T) {
@@ -31,10 +28,9 @@ template needsToAddGCRange(T, alias register_gc) {
 
 } // needsToAddGCRange
 
-struct Array(T, RegisterWithGC register_gc = RegisterWithGC.Infer) {
+struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 
 	import std.algorithm : move;
-	enum add_ranges = needsToAddGCRange!(T, register_gc);
 
 	private {
 
@@ -386,7 +382,7 @@ private mixin template SOAImpl() {
  * the struct it is templated on, useful for when operating on data is done in a member-wise
  * fashion, or pointers to sub-arrays are necessary for passing to GPU, sound subsystem or similar.
  */
-struct ArraySOA(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
+struct ArraySOA(T, bool add_ranges = shouldAddGCRange!T) {
 
 	static assert(is(T == struct), "can only create SOA array from a struct definition.");
 
@@ -534,10 +530,9 @@ template isCopyable(T) {
  *    * Best Case: O(1)
  *    * Worst Case: O(N)
 */
-struct HashMap(K, V, RegisterWithGC register_gc = RegisterWithGC.Infer) {
+struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V) {
 
 	import std.algorithm : move;
-	enum add_ranges = needsToAddGCRange!(Entry, register_gc);
 
 	// when used_capacity_ / capacity_ > threshold, expand & rehash!
 	enum LOAD_FACTOR_THRESHOLD = 0.75;
@@ -935,7 +930,7 @@ unittest { //test expansion
  * key/value index for values to reside in, meaning each key can be associated with several values.
  * Internally uses the aforemented $(D HashMap) implementation, and behaves as such.
 */
-struct MultiHashMap(K, V, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
+struct MultiHashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V) {
 
 	import std.algorithm : move;
 
@@ -1032,7 +1027,7 @@ unittest {
 
 }
 
-struct LinkedList(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
+struct LinkedList(T, bool add_ranges = shouldAddGCRange!T) {
 
 	struct Node {
 		Node* next;
@@ -1123,7 +1118,7 @@ unittest {
  * Intrusive single linked list, uses next pointer already present in the type
  * to avoid extra dynamic memory allocation.
 */
-struct ILinkedList(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
+struct ILinkedList(T, bool add_ranges = shouldAddGCRange!T) {
 
 	T* head_;
 
@@ -1202,7 +1197,7 @@ unittest {
 
 }
 
-struct Stack(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
+struct Stack(T, bool add_ranges = shouldAddGCRange!T) {
 
 	private LinkedList!(T, add_ranges) list_;
 
@@ -1278,7 +1273,7 @@ unittest {
  * may be deemed useful, for example in a profiler which continually discards old samples as new samples come in,
  * graphing these in the process.
 */
-struct CircularBuffer(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
+struct CircularBuffer(T, bool add_ranges = shouldAddGCRange!T) {
 
 	private {
 
@@ -1347,7 +1342,7 @@ unittest {
  * use case, depending on the amount of deleteMin, and respectively decreaseKey operations.
  * (one which favors shallow heaps, one which favors deeper ones)
 */
-struct DHeap(int N, T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
+struct DHeap(int N, T, bool add_ranges = shouldAddGCRange!T) {
 
 	import std.algorithm : move;
 
@@ -1519,7 +1514,7 @@ unittest {
  * Set implementation ontop of a $(D HashMap).
  * amortized constant time add/exists/remove operations.
 */
-struct HashSet(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
+struct HashSet(T, bool add_ranges = shouldAddGCRange!T) {
 
 	HashMap!(T, bool, add_ranges) hashmap_;
 
@@ -1804,7 +1799,7 @@ struct ByteBuffer {
 
 } // ByteBuffer
 
-struct ScopedBuffer(T, RegisterWithGC add_ranges = RegisterWithGC.Infer) {
+struct ScopedBuffer(T, bool add_ranges = shouldAddGCRange!T) {
 
 	private {
 
