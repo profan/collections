@@ -10,11 +10,6 @@ import core.memory : GC;
 /* testulon */
 import tested : name;
 
-enum RegisterWithGC : uint {
-	Yes,
-	No
-} // RegisterWithGC
-
 template shouldAddGCRange(T) {
 
 	import std.traits : isPointer, hasIndirections;
