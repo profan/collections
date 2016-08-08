@@ -22,12 +22,6 @@ template shouldAddGCRange(T) {
 
 } // shouldAddGCRange
 
-template needsToAddGCRange(T, alias register_gc) {
-
-	enum needsToAddGCRange = register_gc == RegisterWithGC.Yes || (register_gc == RegisterWithGC.Infer && shouldAddGCRange!T);
-
-} // needsToAddGCRange
-
 struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 
 	import std.algorithm : move;
