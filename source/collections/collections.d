@@ -17,6 +17,14 @@ template shouldAddGCRange(T) {
 
 } // shouldAddGCRange
 
+void destroy_thing(T)(ref T t) {
+	static if (is(T == class)) {
+		destroy(t);
+	} else {
+		typeid(T).destroy(&t);
+	}
+} // destroy_thing
+
 struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 
 	import std.algorithm : move;
@@ -26,7 +34,6 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 		IAllocator allocator_;
 
 		T[] array_;
-		size_t capacity_;
 		size_t length_;
 
 	}
@@ -40,7 +47,6 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 
 		this.allocator_ = allocator;
 		this.array_ = allocator_.makeArray!T(initial_size);
-		this.capacity_ = initial_size;
 		this.length_ = 0;
 
 		static if (add_ranges) register();
@@ -56,7 +62,7 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 	static if (add_ranges) {
 
 		private void register() {
-			GC.addRange(cast(void*)this.array_.ptr, this.capacity_ * T.sizeof);
+			GC.addRange(cast(void*)this.array_.ptr, this.array_.length * T.sizeof);
 		} // register
 
 		private void unregister() {
@@ -75,15 +81,21 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 	/**
 	 * Clears the array logically by setting the length to zero, currently does _not_ run any destructors.
 	*/
-	void clear() @safe nothrow @nogc {
+	void clear() {
+
+		foreach (ref e; array_) {
+			destroy_thing(e);
+		}
+
 		this.length_ = 0;
+
 	} // clear
 
 	/**
 	 * Returns the number of elements there is currently space allocated for.
 	*/
 	@property size_t capacity() @safe const nothrow @nogc {
-		return capacity_;
+		return array_.length;
 	} // capacity
 
 	/**
@@ -100,7 +112,7 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 	 * capacity.
 	*/
 	@property size_t length(size_t new_length) @safe nothrow @nogc {
-		if (new_length <= capacity_) {
+		if (new_length <= array_.length) {
 			length_ = new_length;
 		}
 		return length_;
@@ -196,8 +208,8 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 
 	void reserve(size_t requested_size) @trusted {
 
-		if (capacity_ < requested_size) {
-			this.expand(requested_size - capacity_);
+		if (array_.length < requested_size) {
+			this.expand(requested_size - array_.length);
 		}
 
 	} // reserve
@@ -207,7 +219,6 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 		static if (add_ranges) unregister();
 
 		bool success = allocator_.expandArray(array_, extra_size);
-		capacity_ += extra_size;
 
 		static if (add_ranges) register();
 
@@ -222,9 +233,8 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 
 		static if (add_ranges) unregister();
 
-		auto shrinkage = capacity_ - length_;
+		auto shrinkage = array_.length - length_;
 		bool success = allocator_.shrinkArray(array_, shrinkage);
-		capacity_ = length_;
 
 		static if (add_ranges) register();
 
@@ -234,7 +244,7 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 
 	void add(T item) @trusted {
 
-		if (length_ == capacity_) {
+		if (length_ == array_.length) {
 			this.expand(length_);
 		}
 
@@ -245,7 +255,7 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 	static if (isCopyable!T) {
 		void add(ref T item) @safe {
 
-			if (length_ == capacity_) {
+			if (length_ == array_.length) {
 				this.expand(length_);
 			}
 
@@ -264,7 +274,10 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 		import collections.memory : memmove;
 
 		assert(index < length_,
-			   format("removal index was greater or equal to length of array, cap/len was: %d:%d", capacity_, length_));
+			   format("removal index was greater or equal to length of array, cap/len was: %d:%d", array_.length, length_));
+
+		// destroy
+		destroy_thing(array_[index]);
 
 		// [0, 1, 2, 3, 4, 5] -- remove 3, need to shift 4 and 5 one position down
 		//FIXME maybe.. not do this, because it is potentially an *awful* idea.
@@ -523,7 +536,7 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 
 	import std.algorithm : move;
 
-	// when used_capacity_ / capacity_ > threshold, expand & rehash!
+	// when used_capacity_ / array_.length > threshold, expand & rehash!
 	enum LOAD_FACTOR_THRESHOLD = 0.75;
 
 	enum State {
@@ -543,7 +556,6 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 		IAllocator allocator_;
 
 		Entry[] array_;
-		size_t capacity_;
 		size_t used_capacity_;
 
 	}
@@ -554,7 +566,6 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 
 		this.allocator_ = allocator;
 		this.array_ = allocator.makeArray!Entry(initial_size);
-		this.capacity_ = initial_size;
 
 		static if (add_ranges) register();
 
@@ -571,7 +582,7 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 	static if (add_ranges) {
 
 		private void register() {
-			GC.addRange(cast(void*)this.array_.ptr, this.capacity_ * Entry.sizeof);
+			GC.addRange(cast(void*)this.array_.ptr, array_.length * Entry.sizeof);
 		} // register
 
 		private void unregister() {
@@ -616,7 +627,7 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 	}
 
 	@property size_t length() @safe const {
-		return capacity_;
+		return used_capacity_;
 	} // length
 
 	/* move other instance into self */
@@ -624,7 +635,6 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 
 		this.free();
 		this.array_ = move(other.array_);
-		this.capacity_ = move(other.capacity_);
 		this.used_capacity_ = move(other.used_capacity_);
 		this.allocator_ = move(other.allocator_);
 
@@ -687,7 +697,7 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 
 	void rehash() @trusted {
 
-		auto temp_map = HashMap!(K, V)(allocator_, capacity_ * 2);
+		auto temp_map = HashMap!(K, V)(allocator_, array_.length * 2);
 
 		foreach (ref k, ref v; this) {
 			temp_map[k] = move(v);
@@ -710,7 +720,7 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 	*/
 	private size_t findIndex(in K key, out bool found) @safe nothrow {
 
-		auto index = key.toHash() % capacity_;
+		auto index = key.toHash() % array_.length;
 		uint searched_elements = 0;
 		size_t fallback_index = -1;
 		found = true;
@@ -727,9 +737,9 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 			}
 
 			searched_elements++;
-			index = (index + 1) % capacity_;
+			index = (index + 1) % array_.length;
 
-			if (searched_elements == capacity_) {
+			if (searched_elements == array_.length) {
 				found = false;
 				return fallback_index;
 			}
@@ -758,15 +768,15 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 
 		import std.algorithm : move;
 
-		auto index = key.toHash() % capacity_;
+		auto index = key.toHash() % array_.length;
 		auto default_value = K.init;
 
-		if ((cast(float)used_capacity_ / cast(float)capacity_) > LOAD_FACTOR_THRESHOLD) {
+		if ((cast(float)used_capacity_ / cast(float)array_.length) > LOAD_FACTOR_THRESHOLD) {
 			this.rehash();
 		}
 
 		while (array_[index].key != key && array_[index].state != State.Free) {
-			index = (index + 1) % capacity_;
+			index = (index + 1) % array_.length;
 		}
 
 		if (array_[index].state == State.Free) { // new key/value pair!
@@ -779,17 +789,17 @@ struct HashMap(K, V, bool add_ranges = shouldAddGCRange!K || shouldAddGCRange!V)
 
 	bool remove(K key) @trusted {
 
-		auto index = key.toHash() % capacity_;
+		auto index = key.toHash() % array_.length;
 		uint searched_elements = 0;
 
 		while (array_[index].key != key) {
 
-			if (searched_elements == capacity_) {
+			if (searched_elements == array_.length) {
 				return false;
 			}
 
 			searched_elements++;
-			index = (index + 1) % capacity_;
+			index = (index + 1) % array_.length;
 
 		}
 		
