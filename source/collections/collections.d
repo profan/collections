@@ -118,6 +118,8 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 		return length_;
 	} // length
 
+	alias opDollar = length;
+
 	/**
 	 * Returns a reference to the data inside the array,
 	 *  note that this is inherently unsafe as making sure the slice
@@ -161,11 +163,6 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 
 	} // opApply
 
-	size_t opDollar(int dim)() const nothrow {
-		static assert(dim == 0); //TODO remember what this does..
-		return length_;
-	} // opDollar
-
 	const(T[]) opSlice() @safe const nothrow {
 		return array_[0..length_];
 	} // opSlice
@@ -177,6 +174,14 @@ struct Array(T, bool add_ranges = shouldAddGCRange!T) {
 	T[] opSlice(size_t h, size_t t) nothrow {
 		return array_[h..t];
 	} // opSlice
+
+	void opSliceAssign(T value) @nogc {
+		array_[0..length_] = value;
+	} // opSliceAssign
+
+	void opSliceAssign(T value, size_t i, size_t j) @nogc {
+		array_[i..j] = value;
+	} // opSliceAssign
 
 	void opOpAssign(string op: "~")(T item) @trusted {
 		this.add(move(item));
